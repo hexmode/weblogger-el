@@ -9,7 +9,7 @@
 ;; Keywords: weblog blogger cms movable type openweblog blog
 ;; URL: http://emacswiki.org/emacs/weblogger.el
 ;; Version: 1.4
-;; Last Modified: <2009-08-06 21:12:18 mah>
+;; Last Modified: <2009-08-12 19:20:16 mah>
 ;; Package-Requires: xml-rpc
 
 ;; This file is not yet part of GNU Emacs.
