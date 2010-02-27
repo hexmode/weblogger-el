@@ -154,10 +154,11 @@
 ;;  ** Otherwise, you may get /a lot/ of terminal beeps and errors
 ;;  ** (This is a dependency of url.el, but is listed here for clarity.)
 
-(require 'cl)
 (require 'xml-rpc)
 (require 'message)
 (require 'ring)
+(eval-when-compile
+  (require 'cl))
 
 (defconst weblogger-maintainer-address "mah@everybody.org"
   "The address where bug reports should be sent.")
