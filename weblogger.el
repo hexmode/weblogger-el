@@ -213,8 +213,10 @@ tags when using the Blogger API."
   :group 'weblogger
   :type 'boolean)
 
-(defvar weblogger-config-name "default"
-  "Name of  the default configuration.")
+(defcustom weblogger-config-name "default"
+  "Name of the default configuration."
+  :group 'weblogger
+  :type 'string)
 
 (defvar weblogger-entry-list nil
   "List of weblog entries that we know about. Chronological
@@ -235,7 +237,8 @@ order, with newest first.")
 (defcustom weblogger-start-edit-entry-hook
   (list (lambda ()
           (message-goto-body)
-          (replace-string "\r" "" nil (point) (point-max))))
+          (while (search-forward "\r" nil t)
+            (replace-match "" nil t))))
   "Hook to run after loading an entry in buffer for editing."
   :group 'weblogger
   :type 'hook)
@@ -413,18 +416,14 @@ haven't set one.  Set to nil for no category.")
   "Select a previously saved configuration."
   (interactive)
   (let* ((completion-ignore-case t)
-	 (seq 0)
-	 (configs (mapcar
-		   (lambda (config)
-		     (cons (car config) (setq seq (1+ seq))))
-		   weblogger-config-alist))
-	 (conf (cdr (assoc
-		     (or config 
-			 (if (= 1 (length configs))
-			     (caar configs)
-			   (completing-read 
-			    "Config Name: " configs nil t)))
-		     weblogger-config-alist))))
+         (name (or config 
+                   (if (= 1 (length weblogger-config-alist))
+                       (caar weblogger-config-alist)
+                     (completing-read 
+                      "Config Name: " weblogger-config-alist nil t))))
+
+	 (conf (cdr (assoc name weblogger-config-alist))))
+    (setq weblogger-config-name name)
     (setq weblogger-server-url      (nth 0 conf))
     (setq weblogger-server-username (nth 1 conf))
     (setq weblogger-server-password (nth 2 conf))
@@ -441,19 +440,17 @@ haven't set one.  Set to nil for no category.")
         (pass   (weblogger-server-password t))
         (weblog (weblogger-weblog-id       t)))
     (setq weblogger-config-name
-	  (read-from-minibuffer
-	   (format "Name this configuration (\"%s\"): "
-		   weblogger-config-name)
-	   weblogger-config-name))
+	  (read-from-minibuffer "Name this configuration: " "default"))
+
     (let ((conf (assoc weblogger-config-name weblogger-config-alist))
 	  (settings (list weblogger-server-url user
-                          (when weblogger-save-password
-                            pass) weblog)))
+                          (if weblogger-save-password pass "") weblog)))
       (if conf (setcdr conf settings)
-        (if (not weblogger-config-alist)
-	    (setq weblogger-config-alist (cons weblogger-config-name
-					       settings))
-	  (add-to-list weblogger-config-alist
+        (if (or (not weblogger-config-alist)
+                (not (listp weblogger-config-alist)))
+	    (setq weblogger-config-alist
+                  (list (cons weblogger-config-name settings)))
+	  (add-to-list 'weblogger-config-alist
 		       (cons weblogger-config-name
 			     settings)))))
     (weblogger-save-configuration)))
@@ -468,7 +465,10 @@ the filename in weblogger-config-file."
   "Change the server-url."
   (interactive)
   (setq weblogger-server-url
-	(read-from-minibuffer "Server Endpoint (URL): " weblogger-server-url))
+	(read-from-minibuffer "Server Endpoint (URL): "
+                              (if (stringp weblogger-server-url)
+                                  weblogger-server-url
+                                "")))
   (weblogger-determine-capabilities))
 
 (defun weblogger-change-user ()
@@ -683,11 +683,14 @@ argument, prompts for the weblog to use."
 (defun weblogger-server-username (&optional prompt)
   "Get the username.  If you've not yet logged in then prompt for
 it."
-  (if (or prompt (not weblogger-server-username))
-      (let ((auth-user (when (fboundp 'auth-source-user-or-password)
-                         (auth-source-user-or-password "login"
-                                                       (url-host (url-generic-parse-url
-                                                                  weblogger-server-url))
+  (if (or prompt
+          (not weblogger-server-username)
+          (not (stringp weblogger-server-username)))
+      (let ((auth-user
+             (when (fboundp 'auth-source-user-or-password)
+               (auth-source-user-or-password "login"
+                                             (url-host (url-generic-parse-url
+                                                        weblogger-server-url))
                                                        "http")))
             (config-user (nth 1 (cdr (assoc weblogger-config-name
                                             weblogger-config-alist)))))
@@ -703,23 +706,22 @@ it."
 (defun weblogger-server-password (&optional prompt)
   "Get the password.  If you've not yet logged in then prompt for
 it"
-  (when (string= weblogger-server-password "")
-    (setq weblogger-server-password nil))
-  (if (or prompt (not weblogger-server-password))
-      (let* ((auth-pass (when (fboundp 'auth-source-user-or-password)
-                          (auth-source-user-or-password "password"
-                                                        (url-host (url-generic-parse-url
-                                                                   weblogger-server-url))
-                                                        "http")))
+  (when (not (stringp weblogger-server-password))
+    (setq weblogger-server-password ""))
+  (if (or prompt (string= weblogger-server-password ""))
+      (let ((auth-pass
+             (when (fboundp 'auth-source-user-or-password)
+               (auth-source-user-or-password "password"
+                                             (url-host (url-generic-parse-url
+                                                        weblogger-server-url))
+                                             "http")))
              (get-pass (nth 2 (cdr (assoc weblogger-config-name
-                                          weblogger-config-alist))))
-
-             (config-pass (when (not (string= get-pass ""))
-                            get-pass)))
+                                          weblogger-config-alist)))))
         (setq weblogger-server-password
               (if auth-pass auth-pass
-                (if config-pass config-pass
-                  (read-passwd "Password for weblog server: ")))))
+                (if get-pass
+                    get-pass)
+                (or (read-passwd "Password for weblog server: ") ""))))
     weblogger-server-password))
 
 (defun weblogger-weblog-id (&optional prompt)
