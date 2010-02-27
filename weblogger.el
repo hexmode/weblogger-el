@@ -1,3 +1,4 @@
+
 ;; weblogger.el - Weblog maintenance via XML-RPC APIs
 
 ;; Copyright (C) 2002,2003,2004,2005 Mark A. Hershberger.
@@ -33,29 +34,26 @@
 ;;
 ;;; Starting Out:
 ;;
-;; If you don't yet have a weblog, you can use weblogger.el to set up
-;; a weblog hosted on OpenWeblog.com.  This free hosting is limitted
-;; in some ways, but you can always dowload the code and run your own
-;; server as the server code is under the GPL.
+;; If you don't yet have a weblog, you can set one up for free on
+;; various services.  (I suggest OpenWeblog.com, but then I run that
+;; site :) )
 ;;
-;; To create 
+;; To set up your profile:
 ;;
 ;;    M-x weblogger-setup-weblog RET
-;;
-;; You will be prompted for some information and will be sent an
-;; email.  This email will provide you with the contents of a
-;; ~/.webloggerrc file.
-;;
-;; If you already have a weblog, and your weblog supports RSD
-;; (http://archipelago.phrasewise.com/rsd), you can use
-;;
-;;    M-x weblogger-discover-server RET url RET
-;;
-;; where url is the URL of your weblog.  This will set up a
-;; ~/.webloggerrc file for you if you let it.
-;;
-;; If your weblog doesn't support RSD, then you will want to set up
-;; your server information using
+;; You will be prompted for some information.  You can save this setup
+;; using M-x customize-save-customized. *** FIXME: Make sure this works!
+
+;; *** FIXME This section is complete fantasy at the moment.
+;; ;; If you already have a weblog, and your weblog supports RSD
+;; ;; (http://archipelago.phrasewise.com/rsd), you can use
+;; ;;
+;; ;;    M-x weblogger-discover-server RET url RET
+;; ;;
+;; ;; where url is the URL of your weblog.  This will set up a
+;; ;; ~/.webloggerrc file for you if you let it.
+
+;; You can also set up your server information using
 ;;
 ;;    M-x customize-group RET weblogger RET
 ;;
@@ -216,7 +214,7 @@ order, with newest first.")
 
 (defvar weblogger-start-edit-entry-hook (lambda ()
 					  (message-goto-body)
-					  (replace-string "" "" nil (point) (point-max)))
+					  (replace-string "\r" "" nil (point) (point-max)))
   "Hook to run after loading an entry in buffer for editting.")
 
 (defvar weblogger-new-entry-hook '(weblogger-ping-weblogs)
@@ -455,7 +453,8 @@ the filename in weblogger-config-file."
   (use-local-map weblogger-entry-mode-map)
   (setq mode-name "weblogger-entry")
   (setq major-mode 'weblogger-entry-mode)
-  (setq weblogger-entry-ring (make-ring weblogger-max-entries-in-ring))
+  (unless weblogger-entry-ring
+    (setq weblogger-entry-ring (make-ring weblogger-max-entries-in-ring)))
   (run-hooks 'weblogger-entry-mode-hook))
 
 (defun weblogger-template-mode ()
@@ -515,8 +514,8 @@ and prompt for the weblog to post to if multiple ones are
 available."
   (interactive "P")
   (if prompt (weblogger-weblog-id prompt))
-  (setq *weblogger-entry* (switch-to-buffer "*weblogger-entry*"))
-  (weblogger-entry-mode)
+  (unless weblogger-entry-ring
+    (setq weblogger-entry-ring (make-ring weblogger-max-entries-in-ring)))
   (ring-insert weblogger-entry-ring '(("content" "")))
   (setq weblogger-ring-index 0)
   (weblogger-edit-entry))
@@ -963,6 +962,7 @@ specified, then the default is weblogger-max-entries-in-ring."
 Otherwise, open a new entry."
   (setq *weblogger-entry* (switch-to-buffer "*weblogger-entry*"))
   (setq buffer-read-only nil)
+  (weblogger-entry-mode)
   (erase-buffer)
   (weblogger-entry-setup-headers entry t)
   (if (and entry (cdr (assoc "content" entry)))
