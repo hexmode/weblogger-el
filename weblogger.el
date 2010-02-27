@@ -296,6 +296,7 @@ haven't set one.  Set to nil for no category.")
 (defvar weblogger-api-send-edits nil)
 (defvar weblogger-api-list-entries nil)
 (defvar weblogger-api-list-categories nil)
+(defvar weblogger-api-delete-entry 'weblogger-api-blogger-delete-entry)
 
 (defvar weblogger-weblog-alist nil
   "Weblogs the user can use on the server.")
@@ -868,10 +869,25 @@ is set, then add it to the current index and go to that entry."
   (interactive)
   (weblogger-goto-entry -1 t))
 
-(defun weblogger-prev-entry ()
+(defun weblogger-prev-eantry ()
   "Edit the contents of the previous entry."
   (interactive)
   (weblogger-goto-entry +1 t))
+
+(defun weblogger-delete-entry ()
+  "Delete the entry."
+  (interactive)
+  (unless weblogger-ring-index
+    (message "You must have an entry loaded first."))
+  (when (y-or-n-p "Do you really want to delete this entry? ")
+    (let* ((msgid (cdr 
+                   (assoc "entry-id" 
+			    (ring-ref weblogger-entry-ring 
+				      weblogger-ring-index)))))
+      (funcall weblogger-api-delete-entry msgid)
+      (ring-remove weblogger-entry-ring weblogger-ring-index)
+      (weblogger-edit-entry
+       (ring-ref weblogger-entry-ring weblogger-ring-index)))))
 
 (defun weblogger-api-new-entry (struct publishp)
   "Publish a new entry (STRUCT) using the best method available."
@@ -1067,6 +1083,16 @@ specified, then the default is weblogger-max-entries-in-ring."
 	  (weblogger-server-username)
 	  (weblogger-server-password)
 	  (or count weblogger-max-entries-in-ring)))))
+
+(defun weblogger-api-blogger-delete-entry (msgid)
+  (xml-rpc-method-call
+   weblogger-server-url
+   'blogger.deletePost
+   weblogger-blogger-app-key
+   msgid
+   (weblogger-server-username)
+   (weblogger-server-password)
+   t))
 
 (defun weblogger-edit-entry (&optional entry)
   "Edit a entry.  If ENTRY is specified, then use that entry.
