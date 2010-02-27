@@ -477,11 +477,13 @@ shouldn't be changed.")
         (if (fboundp 'find-lisp-object-file-name)
             (find-lisp-object-file-name
              'timezone-parse-date (symbol-function 'timezone-parse-date))
-          (symbol-file 'timezone-parse-date))))
+          (symbol-file 'timezone-parse-date)))
+       (date-parses-as (timezone-parse-date "20091130T00:52:53")))
    (reporter-submit-bug-report
     weblogger-maintainer-address
     (concat "weblogger.el " weblogger-version)
     (list 'xml-rpc-tz-pd-defined-in
+          'date-parses-as
           'xml-rpc-load-hook
           'xml-rpc-use-coding-system
           'xml-rpc-allow-unicode-string
