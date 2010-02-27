@@ -43,8 +43,11 @@
 ;; To set up your profile:
 ;;
 ;;    M-x weblogger-setup-weblog RET
-;; You will be prompted for some information.  You can save this setup
-;; using M-x customize-save-customized. *** FIXME: Make sure this works!
+
+;; You will be prompted for some information.  The URL should be the
+;; one that uses the API you're using, not the one you would use for
+;; typing an entry.  For instance, in wordpress, use
+;; <blog-url>/xmlrpc.php.
 
 ;; *** FIXME This section is complete fantasy at the moment.
 ;; ;; If you already have a weblog, and your weblog supports RSD
