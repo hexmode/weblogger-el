@@ -568,8 +568,10 @@ available."
   (interactive "P")
   (if prompt (weblogger-weblog-id prompt))
   (unless weblogger-entry-ring
-    (setq weblogger-entry-ring (make-ring weblogger-max-entries-in-ring)))
-  (ring-insert weblogger-entry-ring '(("content" "")))
+    (setq weblogger-entry-ring (make-ring weblogger-max-entries-in-ring))
+    (ring-insert weblogger-entry-ring (list (cons "content" ""))))
+  (when (assoc "entry-id" (ring-ref weblogger-entry-ring 0))
+    (ring-insert weblogger-entry-ring (list (cons "content" ""))))
   (setq weblogger-ring-index 0)
   (weblogger-edit-entry))
 
