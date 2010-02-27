@@ -230,24 +230,33 @@ aggregators know that you have updated.")
   "Pointer to the index on the ring")
 
 (defconst weblogger-no-capabilities '(("blogger.newPost" . nil)
-				 ("blogger.editPost" . nil)
-				 ("blogger.getRecentPosts" . nil)
-				 ("blogger.getUsersBlogs" . nil)
-				 ("blogger.getUserInfo" . nil)
-				 ("blogger.deletePost" . nil)
-				 ("blogger.getTemplate" . nil)
-				 ("blogger.setTemplate" . nil)
-				 ("metaWeblog.getPost" . nil)
-				 ("metaWeblog.newPost" . nil)
-				 ("metaWeblog.editPost" . nil)	
-				 ("metaWeblog.newMediaObject" . nil)	
-				 ("metaWeblog.getRecentPosts" . nil)
-				 ("mt.setPostCategories" . nil)
-				 ("mt.getPostCategories" . nil)
-				 ("mt.getTrackbackPings" . nil)
-				 ("mt.supportedMethods" . nil)
-				 ("mt.publishPost" . nil)
-				 ("mt.supportedTextFilters" . nil)))
+				      ("blogger.getPost" . nil)
+				      ("blogger.editPost" . nil)
+				      ("blogger.getRecentPosts" . nil)
+				      ("blogger.getUsersBlogs" . nil)
+				      ("blogger.getUserInfo" . nil)
+				      ("blogger.deletePost" . nil)
+				      ("blogger.getTemplate" . nil)
+				      ("blogger.setTemplate" . nil)
+				      ("metaWeblog.getPost" . nil)
+				      ("metaWeblog.newPost" . nil)
+				      ("metaWeblog.editPost" . nil)	
+				      ("metaWeblog.newMediaObject" . nil)	
+				      ("metaWeblog.getRecentPosts" . nil)
+				      ("metaWeblog.getCategories" . nil)
+				      ("metaWeblog.newMediaObject" . nil)
+				      ("metaWeblog.deletePost" . nil)
+				      ("metaWeblog.getTemplate" . nil)
+				      ("metaWeblog.setTemplate" . nil)
+				      ("metaWeblog.getUsersBlogs" . nil)
+				      ("mt.getCategoryList" . nil)
+				      ("mt.getRecentPostTitles" . nil)
+				      ("mt.setPostCategories" . nil)
+				      ("mt.getPostCategories" . nil)
+				      ("mt.getTrackbackPings" . nil)
+				      ("mt.supportedMethods" . nil)
+				      ("mt.publishPost" . nil)
+				      ("mt.supportedTextFilters" . nil)))
 
 (defvar weblogger-capabilities weblogger-no-capabilities
   "Known capabilities of the remote host")
@@ -525,6 +534,11 @@ available."
 	       (assoc "title"
 		      (ring-ref 
 		       weblogger-entry-ring weblogger-ring-index))))
+	     (keywords
+	      (cdr
+	       (assoc "categories"
+		      (ring-ref 
+		       weblogger-entry-ring weblogger-ring-index))))
 	     (texttype
 	      (cdr
 	       (assoc "texttype"
@@ -569,8 +583,8 @@ available."
 	(when texttype
 	    (message-add-header
 	     (format "X-TextType: %s" (weblogger-texttype-name-from-id texttype))))
-	(when title
-	  (message-add-header (concat "Subject: " title)))
+	(message-add-header (concat "Subject: " (when title title)))
+	(message-add-header (concat "Keywords: " (when keywords keywords)))
 	(message-add-header (concat "From: " 
 				    (or author weblogger-server-username)))))
   (message-add-header (concat "Newsgroup: " 
@@ -1094,7 +1108,7 @@ internally).  If BUFFER is not given, use the current buffer."
 	   (cons "url"           (message-fetch-field "X-Url"))
 	   (cons "title"     (or (message-fetch-field "Subject") 
 				 weblogger-default-title))
-	   (cons "category"  (or (message-tokenize-header 
+	   (cons "categories"  (or (message-tokenize-header 
 				 (message-fetch-field "Keywords") ", ")
 				weblogger-default-categories))
 	   (when (message-fetch-field "In-Reply-To")
