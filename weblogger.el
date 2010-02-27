@@ -1,11 +1,10 @@
 ;;; weblogger.el - Weblog maintenance via XML-RPC APIs
 
-;; Copyright (C) 2002-2007 Mark A. Hershberger.
+;; Copyright (C) 2002-2009 Mark A. Hershberger.
 ;; Inspired by code Copyright (C) 2001 by Simon Kittle.
 ;; Parts Copyright (C) 2007 Wickersheimer Jeremy.
 
-;; Author: Mark A. Hershberger <mah@everybody.org>
-;; Version: 1.2
+;; Original Author: Mark A. Hershberger <mah@everybody.org>
 ;; Created: 2002 Oct 11
 ;; Keywords: weblog blogger cms movable type openweblog blog
 ;; URL: http://elisp.info/package/weblogger/
@@ -125,6 +124,10 @@
 ;;  * Weblog creation using OpenWeblog.com
 ;;  * Menus
 ;;  * Toolbar
+;;  * Comments
+;;  * More robust support for metaWebBlog API
+;;  * Support more than just the metaWebBlog API
+;;  * WordPress "Page" selection and "Tag" support
 ;;
 ;; Bugs/Features:
 ;;
@@ -134,6 +137,8 @@
 ;;  * If the server isn't reachable, (weblogger-determine-capabilities)
 ;;    will get the wrong information.
 ;;  * Changed titles aren't put in the weblogger post ring.
+;;  * Dependency issues: Use GnuTLS (gnutls-cli) for SSL encryption
+;;  ** Otherwise, you may get /a lot/ of terminal beeps and errors
 
 (require 'xml-rpc)
 (require 'message)
@@ -156,7 +161,7 @@
   :group 'weblogger
   :type 'string)
 
-(defcustom weblogger-server-url "http://www.openweblog.com/xmlrpc/"
+(defcustom weblogger-server-url "http://www.openweblog.com/interface/blogger/"
  "Server you want to use.  If this is an OpenWeblog.com site, leave this
 at the default.  Otherwise, you will need to change it."
   :group 'weblogger
@@ -598,7 +603,7 @@ for the weblog to use."
   (bury-buffer))
 
 
-(defun weblogger-save-entry (&optional publishp &optional arg)
+(defun weblogger-save-entry (&optional publishp arg)
   "Publish the current entry is publishp is set.  With optional
 argument, prompts for the weblog to use."
   (interactive)
@@ -634,25 +639,43 @@ argument, prompts for the weblog to use."
 (defun weblogger-server-username (&optional prompt)
   "Get the username.  If you've not yet logged in then prompt for
 it."
-  (setq weblogger-server-username
-	(progn (when (and
-		      (assoc weblogger-config-name weblogger-config-alist)
-		      (not weblogger-server-username))
-		 (weblogger-select-configuration weblogger-config-name))
-	       (if (or prompt (not weblogger-server-username))
-		   (read-from-minibuffer "Username: " weblogger-server-username)
-		 weblogger-server-username))))
+  (if (not weblogger-server-username)
+      (let ((auth-user (when (fboundp 'auth-source-user-or-password)
+                         (auth-source-user-or-password "login"
+                                              (url-host (url-generic-parse-url
+                                                         weblogger-server-url))
+                                              "http"))))
+        (setq weblogger-server-username
+              (if auth-user
+                  auth-user
+                (when (and
+                       (assoc weblogger-config-name weblogger-config-alist)
+                       (not weblogger-server-username))
+                  (weblogger-select-configuration weblogger-config-name))
+                (if (and prompt (not weblogger-server-username))
+                    (read-from-minibuffer "Username: " weblogger-server-username)
+                  weblogger-server-username))))
+    weblogger-server-username))
 
 (defun weblogger-server-password (&optional prompt)
   "Get the password.  If you've not yet logged in then prompt for
 it"
-  (setq weblogger-server-password
-	(if (or prompt (not weblogger-server-password))
-	    (if weblogger-server-password
-		(read-passwd "Password for weblog server: "
-			     nil weblogger-server-password)
-	      (read-passwd "Password for weblog server: " nil))
-	    weblogger-server-password)))
+  (if (not weblogger-server-password)
+      (let ((auth-pass (when (fboundp 'auth-source-user-or-password)
+                         (auth-source-user-or-password "password"
+                                              (url-host (url-generic-parse-url
+                                                         weblogger-server-url))
+                                              "http"))))
+            (setq weblogger-server-password
+                  (if auth-pass
+                      auth-pass
+                    (if (or prompt (not weblogger-server-password))
+                        (if weblogger-server-password
+                            (read-passwd "Password for weblog server: "
+                                         nil weblogger-server-password)
+                          (read-passwd "Password for weblog server: " nil))
+                      weblogger-server-password))))
+            weblogger-server-password))
 
 (defun weblogger-weblog-id (&optional prompt)
   "Get the weblog ID."
@@ -1016,9 +1039,11 @@ Otherwise, open a new entry."
       (insert (cdr (assoc "content" entry))))
   (run-hooks 'weblogger-start-edit-entry-hook)
   (set-buffer-modified-p nil)
+  (message-goto-keywords)   ;; Create Keywords field in new entries
   (if (message-fetch-field "Subject")
-      (message-goto-body)
-    (message-goto-subject))
+      (message-goto-body)   ;; If Subject exists, move cursor to message body
+    (message-goto-subject)) ;; Else, drop cursor on Subject header
+  (message-fetch-field "Keywords")
   (pop-to-buffer *weblogger-entry*))
 
 (defun weblogger-response-to-struct (response)
@@ -1030,11 +1055,12 @@ like."
 	(userid      (cdr (assoc-ignore-case "userid" response)))
 	(title       (cdr (assoc-ignore-case "title" response)))
 	(dateCreated (cdr (assoc-ignore-case "datecreated" response)))
-	(content     (assoc-ignore-case "content" response))
+	(content          (assoc-ignore-case "content" response))
 	(trackbacks  (cdr (assoc-ignore-case "mt_tb_ping_urls" response)))
 	(textType    (cdr (assoc-ignore-case "mt_convert_breaks" response)))
 	(url         (cdr (assoc-ignore-case "link" response)))
-	(description (assoc-ignore-case "description" response))
+	(description      (assoc-ignore-case "description" response))
+	(extended         (assoc-ignore-case "mt_text_more" response))
 	(categories  (cdr (assoc-ignore-case "categories" response))))
     
     (cond (content
@@ -1072,7 +1098,12 @@ like."
 		      (when trackbacks
 			(cons "trackbacks"   trackbacks))
 		      (when description
-			(cons "content"      (cdr description)))
+			(cond ((cdr extended)
+			  (cons "content"   (concat (cdr description)
+			    "<!--more-->"
+			    (cdr extended))))
+			  (t 
+			    (cons "content" (cdr description)))))
 		      (when title
 			(cons "title"        title))
 		      (when url
@@ -1227,3 +1258,4 @@ internally).  If BUFFER is not given, use the current buffer."
 
 (provide 'weblogger)
 
+;;; weblogger.el ends here
