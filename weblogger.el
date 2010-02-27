@@ -1,4 +1,4 @@
-;;; weblogger.el - Weblog maintenance via XML-RPC APIs
+;;; weblogger.el --- Weblog maintenance via XML-RPC APIs
 
 ;; Copyright (C) 2002-2009 Mark A. Hershberger.
 ;; Inspired by code Copyright (C) 2001 by Simon Kittle.
@@ -7,7 +7,7 @@
 ;; Original Author: Mark A. Hershberger <mah@everybody.org>
 ;; Created: 2002 Oct 11
 ;; Keywords: weblog blogger cms movable type openweblog blog
-;; URL: http://elisp.info/package/weblogger/
+;; URL: http://emacswiki.org/emacs/weblogger.el
 
 ;; This file is not yet part of GNU Emacs.
 
