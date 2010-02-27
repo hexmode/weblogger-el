@@ -9,7 +9,7 @@
 ;; Keywords: weblog blogger cms movable type openweblog blog
 ;; URL: http://emacswiki.org/emacs/weblogger.el
 ;; Version: 1.4
-;; Last Modified: <2009-08-04 13:15:54 mah>
+;; Last Modified: <2009-08-06 21:12:18 mah>
 ;; Package-Requires: xml-rpc
 
 ;; This file is not yet part of GNU Emacs.
@@ -448,13 +448,15 @@ haven't set one.  Set to nil for no category.")
     (let ((conf (assoc weblogger-config-name weblogger-config-alist))
 	  (settings (list weblogger-server-url user
                           (when weblogger-save-password
-                            pass) weblog))
-          (if conf
-              (setcdr conf settings)
-            (add-to-list weblogger-config-alist
-                         (cons weblogger-config-name
-                               settings))))))
-  (weblogger-save-configuration))
+                            pass) weblog)))
+      (if conf (setcdr conf settings)
+        (if (not weblogger-config-alist)
+	    (setq weblogger-config-alist (cons weblogger-config-name
+					       settings))
+	  (add-to-list weblogger-config-alist
+		       (cons weblogger-config-name
+			     settings)))))
+    (weblogger-save-configuration)))
 
 (defun weblogger-save-configuration ()
   "Save the current configuration using the name from CONFIG in
