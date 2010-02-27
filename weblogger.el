@@ -28,8 +28,8 @@
 
 ;;; Commentary:
 
-;; weblogger.el implements the Blogger, MetaWeblog, and Movable Type
-;; APIs to talk to server-side weblog software.
+;; weblogger.el implements the Blogger, MetaWeblog, Movable Type, and
+;; LiveJournal APIs to talk to server-side weblog software.
 ;;
 ;;; Starting Out:
 ;;
@@ -576,6 +576,7 @@ available."
   (message-add-header (concat "Newsgroup: " 
 			      (weblogger-weblog-name-from-id 
 			       (weblogger-weblog-id))))
+  (goto-char (point-max))
   (insert mail-header-separator "\n"))
 
 (defun weblogger-send-entry (&optional arg)
@@ -968,17 +969,17 @@ Otherwise, open a new entry."
 (defun weblogger-response-to-struct (entry)
   "Convert the result of the xml-rpc call to a structure we
 like."
-  (let ((postid      (cdr (assoc "postid" entry)))
-	(authorName  (cdr (assoc "authorName" entry)))
-	(authorID    (cdr (assoc "authorID" entry)))
-	(userid      (cdr (assoc "userid" entry)))
-	(title       (cdr (assoc "title" entry)))
-	(dateCreated (cdr (assoc "dateCreated" entry)))
-	(content     (assoc "content" entry))
-	(trackbacks  (cdr (assoc "mt_tb_ping_urls" entry)))
-	(textType    (cdr (assoc "mt_convert_breaks" entry)))
-	(url         (cdr (assoc "link" entry)))
-	(description (assoc "description" entry)))
+  (let ((postid      (cdr (assoc-ignore-case "postid" entry)))
+	(authorName  (cdr (assoc-ignore-case "authorname" entry)))
+	(authorID    (cdr (assoc-ignore-case "authorid" entry)))
+	(userid      (cdr (assoc-ignore-case "userid" entry)))
+	(title       (cdr (assoc-ignore-case "title" entry)))
+	(dateCreated (cdr (assoc-ignore-case "datecreated" entry)))
+	(content     (assoc-ignore-case "content" entry))
+	(trackbacks  (cdr (assoc-ignore-case "mt_tb_ping_urls" entry)))
+	(textType    (cdr (assoc-ignore-case "mt_convert_breaks" entry)))
+	(url         (cdr (assoc-ignore-case "link" entry)))
+	(description (assoc-ignore-case "description" entry)))
    (cond (content
 	  (delq nil
 		(list
