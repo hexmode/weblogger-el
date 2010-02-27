@@ -1,6 +1,6 @@
 ;; weblogger.el - Weblog maintenance via XML-RPC APIs
 
-;; Copyright (C) 2002,2003,2004 Mark A. Hershberger.
+;; Copyright (C) 2002,2003,2004,2005 Mark A. Hershberger.
 ;; Inspired by code Copyright (C) 2001 by Simon Kittle.
 
 ;; Author: Mark A. Hershberger <mah@everybody.org>
@@ -193,6 +193,11 @@ server.  There may be a server-side limitation to this number."
   :group 'weblogger
   :type '(alist :key-type 'string :value-type 'alist))
 
+(defcustom weblogger-blogger-firstline-title nil
+  "Look for the title in the first line surrounded by <title> tags when using the Blogger API."
+  :group 'weblogger
+  :type 'boolean)
+
 (defvar weblogger-config-name "default"
   "Name of  the default configuration.")
 
@@ -209,13 +214,18 @@ order, with newest first.")
 (defvar weblogger-entry-mode-hook nil
   "Hook to run after starting up weblogger mode.")
 
+(defvar weblogger-start-edit-entry-hook (lambda ()
+					  (message-goto-body)
+					  (replace-string "" "" nil (point) (point-max)))
+  "Hook to run after loading an entry in buffer for editting.")
+
 (defvar weblogger-new-entry-hook '(weblogger-ping-weblogs)
   "Hook to run after sending a new entry.  Typically, this is
 where you would put weblogger-ping-weblogs to let weblog
 aggregators know that you have updated.")
 
 (defvar weblogger-edit-entry-hook nil
-  "Hook to run after updating a new entry.")
+  "Hook to run after updating an entry.")
 
 (defvar weblogger-entry-mode-map nil
   "Keymap for weblogger-entry-mode.")
@@ -507,91 +517,60 @@ available."
   (if prompt (weblogger-weblog-id prompt))
   (setq *weblogger-entry* (switch-to-buffer "*weblogger-entry*"))
   (weblogger-entry-mode)
-  (setq weblogger-ring-index nil)
-  (erase-buffer)
+  (ring-insert weblogger-entry-ring '(("content" "")))
+  (setq weblogger-ring-index 0)
   (weblogger-edit-entry))
 
-(defun weblogger-entry-setup-headers ()
+(defun weblogger-entry-setup-headers (entry &optional body-line)
   "Add any pertinant headers to the weblog entry."
-  (if (and weblogger-ring-index
-	   (> (ring-length weblogger-entry-ring) 0))
-      (let* ((pre-entry-id 
-	      (cdr
-	       (assoc "entry-id"
-		      (ring-ref 
-		       weblogger-entry-ring weblogger-ring-index))))
-	     (url
-	      (cdr
-	       (assoc "url"
-		      (ring-ref
-		       weblogger-entry-ring weblogger-ring-index))))
-	     (entry-id (if pre-entry-id
-			 (if (stringp pre-entry-id)
-			     pre-entry-id
-			   (int-to-string pre-entry-id))))
-	     (title
-	      (cdr
-	       (assoc "title"
-		      (ring-ref 
-		       weblogger-entry-ring weblogger-ring-index))))
-	     (keywords
-	      (cdr
-	       (assoc "categories"
-		      (ring-ref 
-		       weblogger-entry-ring weblogger-ring-index))))
-	     (texttype
-	      (cdr
-	       (assoc "texttype"
-		      (ring-ref 
-		       weblogger-entry-ring weblogger-ring-index))))
-	     (date-created
-	      (cdr
-	       (assoc "dateCreated"
-		      (ring-ref 
-		       weblogger-entry-ring weblogger-ring-index))))
-	     (tb-urls
-	      (cdr
-	       (assoc "trackbacks"
-		      (ring-ref 
-		       weblogger-entry-ring weblogger-ring-index))))
-	     (author
-	      (cdr
-	       (assoc "authorName"
-		      (ring-ref 
-		       weblogger-entry-ring weblogger-ring-index)))))
-	(when entry-id
-	    (message-add-header 
-	     (format "Message-ID: <%s/%s@%s>"
-		     entry-id
-		     (weblogger-weblog-id)
-		     (url-host (url-generic-parse-url weblogger-server-url)))))
-	(when date-created
-	    (message-add-header 
-	     (format "Date: %s"
-		     date-created)))
-	(when tb-urls
-	    (message-add-header
-	     (format "In-Reply-To: %s"
-		     (let ((hold nil))
-		       (mapcar (lambda (p)
-				 (setq hold (concat hold p ", ")))
-			       tb-urls)
-		       hold))))
-	(when url
-	    (message-add-header
-	     (format "X-URL: %s" url)))
-	(when texttype
-	    (message-add-header
-	     (format "X-TextType: %s" (weblogger-texttype-name-from-id texttype))))
-	(message-add-header (concat "Subject: " (when title title)))
-	(message-add-header (concat "Keywords: " (when keywords keywords)))
-	(message-add-header (concat "From: " 
-				    (or author weblogger-server-username)))))
-  (message-add-header (concat "Newsgroup: " 
-			      (weblogger-weblog-name-from-id 
-			       (weblogger-weblog-id))))
-  (goto-char (point-max))
-  (insert mail-header-separator "\n"))
+  (let ((entry-id (when (cdr (assoc  "entry-id" entry))
+		    (if (stringp (cdr (assoc  "entry-id" entry)))
+			(cdr (assoc  "entry-id" entry))
+		      (int-to-string (cdr (assoc  "entry-id" entry))))))
+	(content  (or (cdr (assoc "content"     entry))
+		      ""))
+	(title    (cdr (assoc "title"       entry))))
+
+    (mapcar 'message-add-header
+	    (delq nil
+		  (mapcar
+		   (lambda (bit)
+		     (when (car (cdr-safe bit))
+		       (concat (car bit) ": "
+			       (cadr bit))))
+		   (list
+		    (list "Message-ID"
+			  (when entry-id
+			    (format "<%s/%s@%s>"
+				    entry-id
+				    (weblogger-weblog-id)
+				    (url-host (url-generic-parse-url weblogger-server-url)))))
+		    (list "Date"
+			  (cdr (assoc "dateCreated" entry)))
+		    (list "In-Reply-To"
+			  (let ((hold nil))
+			    (mapcar
+			     (lambda (p)
+			       (setq hold (concat hold p ", ")))
+			     (cdr (assoc "trackbacks"  entry)))
+			    (when hold hold)))
+		    (list "X-URL"
+			  (cdr (assoc "url" entry)))
+		    (list "X-TextType"
+			  (cdr (assoc "texttype" entry)))
+		    (list "Subject" title)
+		    (list "Keywords"
+			  (cdr (assoc "categories" entry)))
+		    (list "From"
+			  (or (cdr (assoc "authorName"  entry))
+			      weblogger-server-username))
+		    (list "Newsgroup"
+			  (concat (weblogger-weblog-name-from-id 
+				   (weblogger-weblog-id))))))))
+
+    (goto-char (point-max))
+    (when body-line
+      (insert mail-header-separator "\n"))))
 
 (defun weblogger-send-entry (&optional arg)
   "Publish the current entry.  With optional argument, prompts
@@ -613,12 +592,13 @@ for the weblog to use."
 	     (weblogger-server-username arg)
 	     (weblogger-server-password arg)
 	     (weblogger-weblog-id arg)
-	     (cond ((assoc "entry-id" entry)
+	     (cond ((cdr (assoc "entry-id" entry))
 		    (weblogger-update-ring entry)
 		    (weblogger-api-send-edits entry t)
 		    (set-buffer-modified-p nil))
 		   (t
-		    (weblogger-api-new-entry entry t))))
+		    (weblogger-entry-setup-headers 
+		     (weblogger-api-new-entry entry t)))))
 	    (t (message "Nothing to post."))))))
 
 (defun weblogger-update-ring (entry)
@@ -667,6 +647,17 @@ it"
 		   (weblogger-select-weblog prompt)
 		 weblogger-weblog-id))))
 
+(defun weblogger-api-blogger-get-content (struct)
+  "Return the content for this post, optionally inserting the
+title in the first row if weblogger-blogger-firstline-title is
+set."
+  (if weblogger-blogger-firstline-title
+      (concat "<title>"
+	      (cdr (assoc "title" struct))
+	      "</title>\n"
+	      (cdr (assoc "content" struct)))
+    (cdr (assoc "content") struct)))
+
 (defun weblogger-api-blogger-send-edits (struct &optional publishp)
   "Blogger API method to post edits to an entry specified by
 STRUCT.  If PUBLISHP is non-nil, publishes the entry as well."
@@ -674,12 +665,10 @@ STRUCT.  If PUBLISHP is non-nil, publishes the entry as well."
    weblogger-server-url
    'blogger.editPost
    weblogger-blogger-app-key
-   (cdr (assoc "entry-id"
-	       (ring-ref weblogger-entry-ring weblogger-ring-index)))
+   (cdr (assoc "entry-id" struct))
    (weblogger-server-username)
    (weblogger-server-password)
-   (cdr (assoc "content"
-	       (ring-ref weblogger-entry-ring weblogger-ring-index)))
+   (weblogger-api-blogger-get-content struct)
    publishp))
 
 (defun weblogger-api-meta-send-edits (struct &optional publishp)
@@ -699,7 +688,13 @@ STRUCT.  If PUBLISHP is non-nil, publishes the entry as well."
   (run-hooks 'weblogger-new-entry-hook)
   (unless weblogger-api-new-entry
     (weblogger-determine-capabilities))
-  (eval `(,weblogger-api-new-entry struct publishp)))
+  (ring-insert
+   weblogger-entry-ring
+   (add-to-list
+    'struct 
+    (cons "entry-id" (eval `(,weblogger-api-new-entry struct publishp)))))
+  (setq weblogger-ring-index 0)
+  (ring-ref weblogger-entry-ring weblogger-ring-index))
 
 (defun weblogger-api-send-edits (struct publishp)
   "Update an entry (in STRUCT) using the best method available."
@@ -717,31 +712,27 @@ STRUCT.  If PUBLISHP is non-nil, publishes the entry as well."
 (defun weblogger-api-blogger-new-entry (struct publishp)
   "Post a new entry from STRUCT.  If PUBLISHP is non-nil, publishes the
 entry as well."
-  (let* ((msgid (xml-rpc-method-call
-		 weblogger-server-url
-		 'blogger.newPost
-		 weblogger-blogger-app-key
-		 (weblogger-weblog-id)
-		 (weblogger-server-username)
-		 (weblogger-server-password)
-		 (cdr (assoc "content" struct))
-		 publishp)))
-    (ring-insert weblogger-entry-ring struct))
-  (setq weblogger-ring-index 0))
+  (xml-rpc-method-call
+   weblogger-server-url
+   'blogger.newPost
+   weblogger-blogger-app-key
+   (weblogger-weblog-id)
+   (weblogger-server-username)
+   (weblogger-server-password)
+   (weblogger-api-blogger-get-content struct)
+   publishp))
 
 (defun weblogger-api-meta-new-entry (struct publishp)
   "Post a new entry (STRUCT).  If PUBLISHP is non-nil, publishes
 the entry as well."
-  (let* ((msgid (xml-rpc-method-call
-		 weblogger-server-url
-		 'metaWeblog.newPost
-		 (weblogger-weblog-id)
-		 (weblogger-server-username)
-		 (weblogger-server-password)
-		 (weblogger-struct-to-request struct)
-		 publishp)))
-    (ring-insert weblogger-entry-ring struct))
-  (setq weblogger-ring-index 0))
+  (xml-rpc-method-call
+   weblogger-server-url
+   'metaWeblog.newPost
+   (weblogger-weblog-id)
+   (weblogger-server-username)
+   (weblogger-server-password)
+   (weblogger-struct-to-request struct)
+   publishp))
 
 (defun weblogger-select-weblog (&optional fetch)
   "Allows the user to select a weblog and returns the weblog ID.
@@ -973,62 +964,77 @@ Otherwise, open a new entry."
   (setq *weblogger-entry* (switch-to-buffer "*weblogger-entry*"))
   (setq buffer-read-only nil)
   (erase-buffer)
-  (weblogger-entry-setup-headers)
+  (weblogger-entry-setup-headers entry t)
   (if (and entry (cdr (assoc "content" entry)))
-      (insert (cdr (assoc "content" entry)))
-    (message-goto-subject))
+      (insert (cdr (assoc "content" entry))))
+  (run-hooks 'weblogger-start-edit-entry-hook)
   (set-buffer-modified-p nil)
+  (if (message-fetch-field "Subject")
+      (message-goto-body)
+    (message-goto-subject))
   (pop-to-buffer *weblogger-entry*))
 
-(defun weblogger-response-to-struct (entry)
+(defun weblogger-response-to-struct (response)
   "Convert the result of the xml-rpc call to a structure we
 like."
-  (let ((postid      (cdr (assoc-ignore-case "postid" entry)))
-	(authorName  (cdr (assoc-ignore-case "authorname" entry)))
-	(authorID    (cdr (assoc-ignore-case "authorid" entry)))
-	(userid      (cdr (assoc-ignore-case "userid" entry)))
-	(title       (cdr (assoc-ignore-case "title" entry)))
-	(dateCreated (cdr (assoc-ignore-case "datecreated" entry)))
-	(content     (assoc-ignore-case "content" entry))
-	(trackbacks  (cdr (assoc-ignore-case "mt_tb_ping_urls" entry)))
-	(textType    (cdr (assoc-ignore-case "mt_convert_breaks" entry)))
-	(url         (cdr (assoc-ignore-case "link" entry)))
-	(description (assoc-ignore-case "description" entry)))
-   (cond (content
-	  (delq nil
-		(list
-		(when postid
-		  (cons "entry-id"     postid))
-		(when title
-		  (cons "title"        title))
-		(when authorName
-		  (cons "authorName"   authorName))
-		(when userid
-		  (cons "userid"       userid))
-		(when dateCreated
-		  (cons "dateCreated"  dateCreated))
-		(when content
-		  (cons "content"      (cdr content))))))
-	 (description
-	  (delq nil (list
-		(when authorName
-		  (cons "authorName"   authorName))
-		(when postid
-		  (cons "entry-id"     postid))
-		(when trackbacks
-		  (cons "trackbacks"   trackbacks))
-		(when description
-		  (cons "content"      (cdr description)))
-		(when title
-		  (cons "title"        title))
-		(when url
-		  (cons "url"          url))
-		(when dateCreated
-		  (cons "dateCreated"  dateCreated))
-		(when textType
-		  (cons "texttype"     textType)))))
-	 (t
-	  (error "bogosity!")))))
+  (let ((postid      (cdr (assoc-ignore-case "postid" response)))
+	(authorName  (cdr (assoc-ignore-case "authorname" response)))
+	(authorID    (cdr (assoc-ignore-case "authorid" response)))
+	(userid      (cdr (assoc-ignore-case "userid" response)))
+	(title       (cdr (assoc-ignore-case "title" response)))
+	(dateCreated (cdr (assoc-ignore-case "datecreated" response)))
+	(content     (assoc-ignore-case "content" response))
+	(trackbacks  (cdr (assoc-ignore-case "mt_tb_ping_urls" response)))
+	(textType    (cdr (assoc-ignore-case "mt_convert_breaks" response)))
+	(url         (cdr (assoc-ignore-case "link" response)))
+	(description (assoc-ignore-case "description" response)))
+    
+    (cond (content
+	   (delq nil (list
+		      (when postid
+			(cons "entry-id"     postid))
+		      (if title
+			  (cons "title"        title)
+			;; See if we can extract the title from the first line of the
+			;; message body if it wasn't in a header.
+			(when (and weblogger-blogger-firstline-title
+				   (string-match "^<title>\\(.*\\)</title>.*\n" (cdr content)))
+			  (setq title (match-string 1 (cdr content)))
+			  (setcdr content
+				  (with-temp-buffer
+				    (insert (cdr content))
+				    (goto-char (point-min))
+				    (replace-string (match-string 0 (cdr content)) "")
+				    (buffer-string)))
+			  (cons "title" title)))
+		      (when authorName
+			(cons "authorName"   authorName))
+		      (when userid
+			(cons "userid"       userid))
+		      (when dateCreated
+			(cons "dateCreated"  dateCreated))
+		      (when content
+			(cons "content"      (cdr content))))))
+	  (description
+	   (delq nil (list
+		      (when authorName
+			(cons "authorName"   authorName))
+		      (when postid
+			(cons "entry-id"     postid))
+		      (when trackbacks
+			(cons "trackbacks"   trackbacks))
+		      (when description
+			(cons "content"      (cdr description)))
+		      (when title
+			(cons "title"        title))
+		      (when url
+			(cons "url"          url))
+		      (when dateCreated
+			(cons "dateCreated"  dateCreated))
+		      (when textType
+			(cons "texttype"     textType)))))
+	  (t
+	   (error "bogosity!")))))
 
 (defun weblogger-struct-to-request (entry)
   "Convert the struct to something that can be used in an xml-rpc request."
