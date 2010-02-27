@@ -10,7 +10,7 @@
 ;; URL: http://emacswiki.org/emacs/weblogger.el
 ;; Maintained-at: http://savannah.nongnu.org/bzr/?group=emacsweblogs
 ;; Version: 1.4.4
-;; Last Modified: <2009-09-13 02:13:03 mah>
+;; Last Modified: <2009-12-07 17:21:57 mah>
 ;; Package-Requires: ((xml-rpc "1.6.7"))
 
 (defconst weblogger-version "1.4.4"
