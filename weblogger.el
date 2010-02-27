@@ -7,10 +7,9 @@
 ;; Original Author: Mark A. Hershberger <mah@everybody.org>
 ;; Created: 2002 Oct 11
 ;; Keywords: weblog blogger cms movable type openweblog blog
-;; URL: http://emacswiki.org/emacs/weblogger.el
-;; Maintained-at: http://savannah.nongnu.org/bzr/?group=emacsweblogs
+;; URL: http://launchpad.net/weblogger-el
 ;; Version: 1.4.4
-;; Last Modified: <2009-12-07 17:21:57 mah>
+;; Last Modified: <2010-02-27 07:03:34 mah>
 ;; Package-Requires: ((xml-rpc "1.6.7"))
 
 (defconst weblogger-version "1.4.4"
