@@ -1309,6 +1309,7 @@ request."
 		     (weblogger-server-username)
 		     (weblogger-server-password)))))))
 
+;;;###autoload
 (defun weblogger-fetch-entries ()
   "Sync the entry ring with what is on the weblog server."
   (interactive)
