@@ -16,30 +16,38 @@
 (defconst weblogger-version "1.4.4"
   "Current version of weblogger.el")
 
-;; This file is not yet part of GNU Emacs.
+;; This file is NOT (yet) part of GNU Emacs.
 
-;; weblogger.el free software; you can redistribute it and/or modify
+;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
-;; any later version.
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
 
-;; weblogger.el is distributed in the hope that it will be useful,
+;; This program is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
 ;; weblogger.el implements the Blogger, MetaWeblog, Movable Type, and
 ;; LiveJournal APIs to talk to server-side weblog software.
-;;
+
+;;; Installation:
+
+;; If you use ELPA (http://tromey.com/elpa), you can install via the
+;; M-x package-list-packages interface. This is preferrable as you
+;; will have access to updates automatically.
+
+;; Otherwise, just make sure this file and xml-rpc.el are in your
+;; load-path (usually ~/.emacs.d is included) and put
+;; (require 'weblogger) in your ~/.emacs or ~/.emacs.d/init.el file.
+
 ;;; Starting Out:
-;;
+
 ;; If you don't yet have a weblog, you can set one up for free on
 ;; various services.  (I suggest OpenWeblog.com, but then I run that
 ;; site :) )
