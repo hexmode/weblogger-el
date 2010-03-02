@@ -9,7 +9,7 @@
 ;; Keywords: weblog blogger cms movable type openweblog blog
 ;; URL: http://launchpad.net/weblogger-el
 ;; Version: 1.4.4
-;; Last Modified: <2010-03-01 21:03:57 mah>
+;; Last Modified: <2010-03-02 16:15:29 mah>
 ;; Package-Requires: ((xml-rpc "1.6.7"))
 
 (defconst weblogger-version "1.4.4"
@@ -116,9 +116,9 @@
 ;; ----
 ;;
 ;; This code was originally based on Simon Kittle's blogger.el
-;; (http://www.tswoam.co.uk/files/blogger.el.txt), but where his
-;; code calls a Perl program, this code uses xml-rpc.el.  You can
-;; get xml-rpc.el from <http://elisp.info/package/xml-rpc/>
+;; (http://www.tswoam.co.uk/files/blogger.el.txt), but where his code
+;; calls a Perl program, this code uses xml-rpc.el.  You can get
+;; xml-rpc.el from <http://elisp.info/package/xml-rpc/>
 ;;
 ;; Differences between SK's blogger.el and weblogger.el
 ;;
@@ -430,6 +430,7 @@ shouldn't be changed.")
           (define-key map "\C-c\C-w" 'weblogger-change-weblog)
           (define-key map "\C-c\C-u" 'weblogger-change-user)
           (define-key map "\C-c\C-e" 'weblogger-toggle-edit-body)
+          (define-key map (kbd "C-c C-a") 'weblogger-publish-to-all-weblogs)
           map)))
 
 (unless weblogger-template-mode-map
@@ -507,14 +508,15 @@ The order of bindings in a keymap matters when it is used as a menu."
       ["Set edit mode"                (lambda () (interactive) (customize-variable 'weblogger-edit-mode)) t]
       ["Change Weblog"                weblogger-change-weblog t]
       ["Setup Weblog"                 weblogger-setup-weblog t]))
-  (define-key-after menu-bar-tools-menu [separator-weblogger]
-    '("--") 'simple-calculator)
-  (define-key-after menu-bar-tools-menu [start-weblog]
-    '(menu-item "Start a new Weblog Entry" weblogger-start-entry :enable
-                (or weblogger-config-alist weblogger-server-url))
-    'separator-weblogger)
-  (define-key-after menu-bar-tools-menu [setup-weblog]
-    '(menu-item "Setup your Weblog" weblogger-setup-weblog) 'start-weblog))
+  (when (boundp 'menu-bar-tools-menu)
+    (define-key-after menu-bar-tools-menu [separator-weblogger]
+      '("--") 'simple-calculator)
+    (define-key-after menu-bar-tools-menu [start-weblog]
+      '(menu-item "Start a new Weblog Entry" weblogger-start-entry :enable
+                  (or weblogger-config-alist weblogger-server-url))
+      'separator-weblogger)
+    (define-key-after menu-bar-tools-menu [setup-weblog]
+      '(menu-item "Setup your Weblog" weblogger-setup-weblog) 'start-weblog)))
 
 (defun weblogger-submit-bug-report ()
  "Submit a bug report on weblogger."
@@ -558,15 +560,9 @@ The order of bindings in a keymap matters when it is used as a menu."
                    (if (= 1 (length weblogger-config-alist))
                        (caar weblogger-config-alist)
                      (completing-read
-                      "Config Name: " weblogger-config-alist nil t))))
+                      "Config Name: " weblogger-config-alist nil t)))))
 
-	 (conf (cdr (assoc name weblogger-config-alist))))
-    (setq weblogger-config-name name)
-    (setq weblogger-server-url      (nth 0 conf))
-    (setq weblogger-server-username (nth 1 conf))
-    (setq weblogger-server-password (nth 2 conf))
-    (setq weblogger-weblog-id       (nth 3 conf))
-    (weblogger-determine-capabilities)
+    (weblogger-switch-configuration name)
     (weblogger-api-blogger-weblog-alist t)
     (weblogger-fetch-entries)))
 
@@ -729,8 +725,9 @@ available."
 			  (or (cdr (assoc "authorName"  entry))
 			      weblogger-server-username))
 		    (list "Newsgroup"
-			  (concat (weblogger-weblog-name-from-id
-				   (weblogger-weblog-id))))))))
+			  (or (weblogger-weblog-name-from-id
+                               (weblogger-weblog-id))
+                              "unknown"))))))
 
     (goto-char (point-max))
     (when body-line
@@ -749,6 +746,27 @@ for the weblog to use."
   (interactive)
   (set-buffer-modified-p t)
   (weblogger-save-entry t arg))
+
+(defun weblogger-switch-configuration (config)
+  "Switch the configuration."
+  (let ((conf (cdr (assoc config weblogger-config-alist))))
+    (setq weblogger-config-name config)
+    (setq weblogger-server-url      (nth 0 conf))
+    (setq weblogger-server-username (nth 1 conf))
+    (setq weblogger-server-password (nth 2 conf))
+    (setq weblogger-weblog-id       (nth 3 conf))))
+
+(defun weblogger-publish-to-all-weblogs ()
+  "Publish to all weblogs in weblog-config-alist."
+  (interactive)
+  (let ((entry (weblogger-entry-buffer-to-struct))
+        weblogger-config-name weblogger-server-url
+        weblogger-server-username weblogger-server-password
+        weblogger-weblog-id)
+    (mapc (lambda (config)
+            (weblogger-switch-configuration (car config))
+            (weblogger-api-new-entry entry t))
+          weblogger-config-alist)))
 
 (defun weblogger-save-entry (&optional publishp arg)
   "Publish the current entry is publishp is set.  With optional
@@ -798,9 +816,9 @@ it."
             (config-user (nth 1 (cdr (assoc weblogger-config-name
                                             weblogger-config-alist)))))
         (setq weblogger-server-username
-              (if auth-user auth-user
-                (if config-user config-user
-                  (if (and prompt weblogger-server-username)
+              (cond (auth-user auth-user)
+                    (config-user config-user)
+                    (t (if (and prompt weblogger-server-username)
                       (read-from-minibuffer "Username: "
                                             weblogger-server-username)
                     (read-from-minibuffer "Username: "))))))
