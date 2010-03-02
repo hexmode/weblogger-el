@@ -9,7 +9,7 @@
 ;; Keywords: weblog blogger cms movable type openweblog blog
 ;; URL: http://launchpad.net/weblogger-el
 ;; Version: 1.4.4
-;; Last Modified: <2010-02-27 07:06:11 mah>
+;; Last Modified: <2010-03-01 21:03:57 mah>
 ;; Package-Requires: ((xml-rpc "1.6.7"))
 
 (defconst weblogger-version "1.4.4"
@@ -411,7 +411,6 @@ shouldn't be changed.")
 (unless weblogger-entry-mode-map
   (setq weblogger-entry-mode-map
         (let ((map (copy-keymap message-mode-map))
-              (server-map (make-sparse-keymap))
               (template-map (make-sparse-keymap)))
           (define-key map "\C-c\C-c" 'weblogger-send-entry)
           (define-key map "\C-x\C-s" 'weblogger-publish-entry)
@@ -438,6 +437,55 @@ shouldn't be changed.")
   (define-key weblogger-template-mode-map "\C-x\C-s"
     'weblogger-save-template))
 
+(unless (fboundp 'define-key-after)
+  (defun define-key-after (keymap key definition &optional after)
+    "Add binding in KEYMAP for KEY => DEFINITION, right after AFTER's binding.
+This is like `define-key' except that the binding for KEY is placed
+just after the binding for the event AFTER, instead of at the beginning
+of the map.  Note that AFTER must be an event type (like KEY), NOT a command
+\(like DEFINITION).
+
+If AFTER is t or omitted, the new binding goes at the end of the keymap.
+AFTER should be a single event type--a symbol or a character, not a sequence.
+
+Bindings are always added before any inherited map.
+
+The order of bindings in a keymap matters when it is used as a menu."
+    (unless after (setq after t))
+    (or (keymapp keymap)
+        (signal 'wrong-type-argument (list 'keymapp keymap)))
+    (setq key
+          (if (<= (length key) 1) (aref key 0)
+            (setq keymap (lookup-key keymap
+                                     (apply 'vector
+                                            (butlast (mapcar 'identity key)))))
+            (aref key (1- (length key)))))
+    (let ((tail keymap) done inserted)
+      (while (and (not done) tail)
+        ;; Delete any earlier bindings for the same key.
+        (if (eq (car-safe (car (cdr tail))) key)
+            (setcdr tail (cdr (cdr tail))))
+        ;; If we hit an included map, go down that one.
+        (if (keymapp (car tail)) (setq tail (car tail)))
+        ;; When we reach AFTER's binding, insert the new binding after.
+        ;; If we reach an inherited keymap, insert just before that.
+        ;; If we reach the end of this keymap, insert at the end.
+        (if (or (and (eq (car-safe (car tail)) after)
+                     (not (eq after t)))
+                (eq (car (cdr tail)) 'keymap)
+                (null (cdr tail)))
+            (progn
+              ;; Stop the scan only if we find a parent keymap.
+              ;; Keep going past the inserted element
+              ;; so we can delete any duplications that come later.
+              (if (eq (car (cdr tail)) 'keymap)
+                  (setq done t))
+              ;; Don't insert more than once.
+              (or inserted
+                  (setcdr tail (cons (cons key definition) (cdr tail))))
+              (setq inserted t)))
+        (setq tail (cdr tail))))))
+
 (unless menu-bar-weblogger-menu
   (easy-menu-define
     menu-bar-weblogger-menu weblogger-entry-mode-map ""
@@ -463,8 +511,8 @@ shouldn't be changed.")
     '("--") 'simple-calculator)
   (define-key-after menu-bar-tools-menu [start-weblog]
     '(menu-item "Start a new Weblog Entry" weblogger-start-entry :enable
-      (or weblogger-config-alist weblogger-server-url))
-      'separator-weblogger)
+                (or weblogger-config-alist weblogger-server-url))
+    'separator-weblogger)
   (define-key-after menu-bar-tools-menu [setup-weblog]
     '(menu-item "Setup your Weblog" weblogger-setup-weblog) 'start-weblog))
 
@@ -640,8 +688,6 @@ available."
 		    (if (stringp (cdr (assoc  "entry-id" entry)))
 			(cdr (assoc  "entry-id" entry))
 		      (int-to-string (cdr (assoc  "entry-id" entry))))))
-	(content  (or (cdr (assoc "content"     entry))
-		      ""))
 	(title    (cdr (assoc "title"       entry))))
 
     (mapc 'message-add-header
@@ -775,10 +821,9 @@ it"
              (get-pass (nth 2 (cdr (assoc weblogger-config-name
                                           weblogger-config-alist)))))
         (setq weblogger-server-password
-              (if auth-pass auth-pass
-                (if get-pass
-                    get-pass)
-                (or (read-passwd "Password for weblog server: ") ""))))
+	      (cond (auth-pass auth-pass)
+		    (get-pass get-pass)
+		    (t (read-passwd "Password for weblog server: ") ""))))
     weblogger-server-password))
 
 (defun weblogger-weblog-id (&optional prompt)
@@ -1192,12 +1237,15 @@ Otherwise, open a new entry."
     (message-goto-subject)) ;; Else, drop cursor on Subject header
   (pop-to-buffer *weblogger-entry*))
 
+(unless (fboundp 'assoc-string)
+  (defun assoc-string (key list &optional fold)
+    (assoc-ignore-case key list)))
+
 (defun weblogger-response-to-struct (response)
   "Convert the result of the xml-rpc call to a structure we
 like."
   (let ((postid      (cdr (assoc-string "postid" response t)))
 	(authorName  (cdr (assoc-string "authorname" response t)))
-	(authorID    (cdr (assoc-string "authorid" response t)))
 	(userid      (cdr (assoc-string "userid" response t)))
 	(title       (cdr (assoc-string "title" response t)))
 	(dateCreated (cdr (assoc-string "datecreated" response t)))
@@ -1206,8 +1254,8 @@ like."
 	(textType
          (cdr (assoc-string "mt_convert_breaks" response t)))
 	(url         (cdr (assoc-string "link" response t)))
-	(description      (assoc-string "description" response))
-	(extended         (assoc-string "mt_text_more" response))
+	(description      (assoc-string "description" response t))
+	(extended         (assoc-string "mt_text_more" response t))
 	(tags        (cdr (assoc-string "mt_tags" response t)))
         (categories  (cdr (assoc-string "categories" response t))))
 
