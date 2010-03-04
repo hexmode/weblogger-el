@@ -750,7 +750,7 @@ for the weblog to use."
 (defun weblogger-switch-configuration (config)
   "Switch the configuration."
   (let ((conf (cdr (assoc config weblogger-config-alist))))
-    (setq weblogger-config-name config)
+    (setq weblogger-config-name     config)
     (setq weblogger-server-url      (nth 0 conf))
     (setq weblogger-server-username (nth 1 conf))
     (setq weblogger-server-password (nth 2 conf))
@@ -824,6 +824,14 @@ it."
                     (read-from-minibuffer "Username: "))))))
     weblogger-server-username))
 
+(defun weblogger-server-url ()
+  "Get the server url of the current configuration."
+  (if (and weblogger-config-alist
+	   weblogger-config-name)
+      (setq weblogger-server-url
+	    (nth 1 (assoc weblogger-config-name weblogger-config-alist)))
+    weblogger-server-url))
+
 (defun weblogger-server-password (&optional prompt)
   "Get the password.  If you've not yet logged in then prompt for
 it"
@@ -841,7 +849,7 @@ it"
         (setq weblogger-server-password
 	      (cond (auth-pass auth-pass)
 		    (get-pass get-pass)
-		    (t (read-passwd "Password for weblog server: ") ""))))
+		    (t (read-passwd "Password for weblog server: ")))))
     weblogger-server-password))
 
 (defun weblogger-weblog-id (&optional prompt)
@@ -1068,7 +1076,7 @@ is set, then add it to the current index and go to that entry."
             weblogger-category-ring (cdr (assoc "categoryName"
                                                 category))))
 	 (xml-rpc-method-call
-	  weblogger-server-url
+	  (weblogger-server-url)
 	  'metaWeblog.getCategories
 	  (weblogger-weblog-id)
 	  (weblogger-server-username)
@@ -1087,7 +1095,7 @@ specified, then the default is weblogger-max-entries-in-ring."
             weblogger-entry-ring
             (weblogger-response-to-struct entry)))
 	 (xml-rpc-method-call
-	  weblogger-server-url
+	  (weblogger-server-url)
 	  'metaWeblog.getRecentPosts
 	  (weblogger-weblog-id)
 	  (weblogger-server-username)
@@ -1098,7 +1106,7 @@ specified, then the default is weblogger-max-entries-in-ring."
   "MetaWeblog API method to post edits to a entry specified by
 STRUCT.  If PUBLISHP is non-nil, publishes the entry as well."
   (xml-rpc-method-call
-   weblogger-server-url
+   (weblogger-server-url)
    'metaWeblog.editPost
    (cdr (assoc "entry-id" struct))
    (weblogger-server-username)
@@ -1110,7 +1118,7 @@ STRUCT.  If PUBLISHP is non-nil, publishes the entry as well."
   "Post a new entry (STRUCT).  If PUBLISHP is non-nil, publishes
 the entry as well."
   (xml-rpc-method-call
-   weblogger-server-url
+   (weblogger-server-url)
    'metaWeblog.newPost
    (weblogger-weblog-id)
    (weblogger-server-username)
@@ -1124,7 +1132,7 @@ the entry as well."
   (weblogger-template-mode)
   (erase-buffer)
   (insert (xml-rpc-method-call
-	   weblogger-server-url
+	   (weblogger-server-url)
 	   'blogger.getTemplate
 	   weblogger-blogger-app-key
 	   (weblogger-weblog-id)
@@ -1140,7 +1148,7 @@ the entry as well."
   (interactive)
   (if (buffer-modified-p)
       (progn (xml-rpc-method-call
-	      weblogger-server-url
+	      (weblogger-server-url)
 	      'blogger.setTemplate
 	      weblogger-blogger-app-key
 	      (weblogger-weblog-id)
@@ -1155,7 +1163,7 @@ the entry as well."
   (setq weblogger-weblog-alist
 	(if (or fetch (not weblogger-weblog-alist))
 	    (xml-rpc-method-call
-	     weblogger-server-url
+	     (weblogger-server-url)
 	     'blogger.getUsersBlogs
 	     weblogger-blogger-app-key
 	     (weblogger-server-username)
@@ -1166,7 +1174,7 @@ the entry as well."
   "Post a new entry from STRUCT.  If PUBLISHP is non-nil, publishes the
 entry as well."
   (xml-rpc-method-call
-   weblogger-server-url
+   (weblogger-server-url)
    'blogger.newPost
    weblogger-blogger-app-key
    (weblogger-weblog-id)
@@ -1190,7 +1198,7 @@ set."
   "Blogger API method to post edits to an entry specified by
 STRUCT.  If PUBLISHP is non-nil, publishes the entry as well."
   (xml-rpc-method-call
-   weblogger-server-url
+   (weblogger-server-url)
    'blogger.editPost
    weblogger-blogger-app-key
    (cdr (assoc "entry-id" struct))
@@ -1214,7 +1222,7 @@ specified, then the default is weblogger-max-entries-in-ring."
 	   (ring-insert-at-beginning weblogger-entry-ring
 				     (weblogger-response-to-struct entry)))
 	 (xml-rpc-method-call
-	  weblogger-server-url
+	  (weblogger-server-url)
 	  'blogger.getRecentPosts
 	  weblogger-blogger-app-key
 	  (weblogger-weblog-id)
@@ -1224,7 +1232,7 @@ specified, then the default is weblogger-max-entries-in-ring."
 
 (defun weblogger-api-blogger-delete-entry (msgid)
   (xml-rpc-method-call
-   weblogger-server-url
+   (weblogger-server-url)
    'blogger.deletePost
    weblogger-blogger-app-key
    msgid
@@ -1372,7 +1380,7 @@ request."
 	    (cdr
 	     (assoc "userid"
 		    (xml-rpc-method-call
-		     weblogger-server-url
+		     (weblogger-server-url)
 		     'blogger.getUserInfo
 		     weblogger-blogger-app-key
 		     (weblogger-server-username)
@@ -1402,7 +1410,7 @@ request."
 		  (and (assoc method weblogger-capabilities)
 		       (setcdr (assoc method weblogger-capabilities) t)))
 		(xml-rpc-method-call
-		 weblogger-server-url
+		 (weblogger-server-url)
 		 'mt.supportedMethods)))
       (error (setq has-mt-api nil))))
   (cond ((cdr (assoc "metaWeblog.editPost" weblogger-capabilities))
