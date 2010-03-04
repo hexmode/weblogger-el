@@ -9,7 +9,7 @@
 ;; Keywords: weblog blogger cms movable type openweblog blog
 ;; URL: http://launchpad.net/weblogger-el
 ;; Version: 1.4.4
-;; Last Modified: <2010-03-02 17:21:53 mah>
+;; Last Modified: <2010-03-04 13:44:58 mah>
 ;; Package-Requires: ((xml-rpc "1.6.7"))
 
 (defconst weblogger-version "1.4.4"
@@ -179,8 +179,8 @@
   :group 'weblogger
   :type 'string)
 
-(defcustom weblogger-server-password nil
-  "Your password.  You will be prompted if this is left nil."
+(defcustom weblogger-server-password ""
+  "Your password.  You will be prompted if this is empty or nil."
   :group 'weblogger
   :type 'string)
 
@@ -1295,8 +1295,12 @@ like."
 				  (with-temp-buffer
 				    (insert (cdr content))
 				    (goto-char (point-min))
-                                    (while (and (not (string= "" (match-string 0 (cdr content))))
-                                                (search-forward (match-string 0 (cdr content)) nil t))
+                                    (while (and (not (string=
+						      "" (match-string
+							  0 (cdr content))))
+                                                (search-forward
+						 (match-string
+						  0 (cdr content)) nil t))
                                       (replace-match "" nil t))
 				    (buffer-string)))
 			  (cons "title" title)))
@@ -1511,6 +1515,48 @@ internally).  If BUFFER is not given, use the current buffer."
 ;;  	(tool-bar-add-item-from-menu
 ;;  	 'ispell-message "spell" message-mode-map)
 ;;  	tool-bar-map))))
+
+(unless (and (fboundp 'widgetp)
+	     (widgetp 'alist))
+  (define-widget 'alist 'list
+    "An association list."
+    :key-type '(sexp :tag "Key")
+    :value-type '(sexp :tag "Value")
+    :convert-widget 'widget-alist-convert-widget
+    :tag "Alist")
+
+  (defvar widget-alist-value-type)	;Dynamic variable
+
+  (defun widget-alist-convert-widget (widget)
+    ;; Handle `:options'.
+    (let* ((options (widget-get widget :options))
+	   (widget-alist-value-type (widget-get widget :value-type))
+	   (other `(editable-list :inline t
+				  (cons :format "%v"
+					,(widget-get widget :key-type)
+					,widget-alist-value-type)))
+	   (args (if options
+		     (list `(checklist :inline t
+				       :greedy t
+				       ,@(mapcar 'widget-alist-convert-option
+						 options))
+			   other)
+		   (list other))))
+      (widget-put widget :args args)
+      widget))
+
+  (defun widget-alist-convert-option (option)
+    ;; Convert a single alist option.
+    (let (key-type value-type)
+      (if (listp option)
+	  (let ((key (nth 0 option)))
+	    (setq value-type (nth 1 option))
+	    (if (listp key)
+		(setq key-type key)
+	      (setq key-type `(const ,key))))
+	(setq key-type `(const ,option)
+	      value-type widget-alist-value-type))
+      `(cons :format "Key: %v" ,key-type ,value-type))))
 
 (provide 'weblogger)
 
