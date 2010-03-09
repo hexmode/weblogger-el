@@ -9,7 +9,7 @@
 ;; Keywords: weblog blogger cms movable type openweblog blog
 ;; URL: http://launchpad.net/weblogger-el
 ;; Version: 1.4.5a
-;; Last Modified: <2010-03-05 15:00:45 mah>
+;; Last Modified: <2010-03-09 10:54:43 mah>
 ;; Package-Requires: ((xml-rpc "1.6.8"))
 
 (defconst weblogger-version "1.4.5a"
@@ -560,11 +560,11 @@ The order of bindings in a keymap matters when it is used as a menu."
                    (if (= 1 (length weblogger-config-alist))
                        (caar weblogger-config-alist)
                      (completing-read
-                      "Config Name: " weblogger-config-alist nil t))))
+                      "Config Name: " weblogger-config-alist nil t)))))
 
     (weblogger-switch-configuration name)
     (weblogger-api-blogger-weblog-alist t)
-    (weblogger-fetch-entries))))
+    (weblogger-fetch-entries)))
 
 ;;;###autoload
 (defun weblogger-setup-weblog ()
