@@ -8,11 +8,11 @@
 ;; Created: 2002 Oct 11
 ;; Keywords: weblog blogger cms movable type openweblog blog
 ;; URL: http://launchpad.net/weblogger-el
-;; Version: 1.4.5a
-;; Last Modified: <2010-03-10 22:55:46 mah>
+;; Version: 1.4.5
+;; Last Modified: <2010-03-11 01:00:19 mah>
 ;; Package-Requires: ((xml-rpc "1.6.8"))
 
-(defconst weblogger-version "1.4.5a"
+(defconst weblogger-version "1.4.5"
   "Current version of weblogger.el")
 
 ;; This file is NOT (yet) part of GNU Emacs.
