@@ -9,7 +9,7 @@
 ;; Keywords: weblog blogger cms movable type openweblog blog
 ;; URL: http://launchpad.net/weblogger-el
 ;; Version: 1.4.5a
-;; Last Modified: <2010-03-09 10:54:43 mah>
+;; Last Modified: <2010-03-10 22:55:46 mah>
 ;; Package-Requires: ((xml-rpc "1.6.8"))
 
 (defconst weblogger-version "1.4.5a"
@@ -1394,9 +1394,7 @@ request."
   (setq weblogger-category-ring (make-ring 20))
   (weblogger-api-list-categories)
   (weblogger-api-list-entries weblogger-max-entries-in-ring)
-  (setq weblogger-ring-index 0)
-  (weblogger-edit-entry
-   (ring-ref weblogger-entry-ring weblogger-ring-index)))
+  (setq weblogger-ring-index 0))
 
 (defun weblogger-determine-capabilities ()
   "Determine the capabilities of the remote weblog server."
