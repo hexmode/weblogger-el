@@ -1,6 +1,6 @@
 ;;; weblogger.el --- Weblog maintenance via XML-RPC APIs
 
-;; Copyright (C) 2002-2009 Mark A. Hershberger.
+;; Copyright (C) 2002-2011 Mark A. Hershberger.
 ;; Inspired by code Copyright (C) 2001 by Simon Kittle.
 ;; Parts Copyright (C) 2007 Wickersheimer Jeremy.
 
@@ -8,11 +8,11 @@
 ;; Created: 2002 Oct 11
 ;; Keywords: weblog blogger cms movable type openweblog blog
 ;; URL: http://launchpad.net/weblogger-el
-;; Version: 1.4.5
-;; Last Modified: <2010-03-11 01:49:36 mah>
+;; Version: 1.4.6
+;; Last Modified: <2011-09-26 12:16:48 mah>
 ;; Package-Requires: ((xml-rpc "1.6.8"))
 
-(defconst weblogger-version "1.4.5"
+(defconst weblogger-version "1.4.6"
   "Current version of weblogger.el")
 
 ;; This file is NOT (yet) part of GNU Emacs.
@@ -1286,6 +1286,7 @@ like."
          (cdr (assoc-string "mt_convert_breaks" response t)))
 	(url         (cdr (assoc-string "link" response t)))
 	(description      (assoc-string "description" response t))
+	(mt_keywords (cdr (assoc-string "mt_keywords" response t)))
 	(extended         (assoc-string "mt_text_more" response t))
 	(tags        (cdr (assoc-string "mt_tags" response t)))
         (categories  (cdr (assoc-string "categories" response t))))
